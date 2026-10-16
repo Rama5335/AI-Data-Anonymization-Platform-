@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-paper text-ink font-body antialiased;
+  }
+  ::selection {
+    background: #0EA5A4;
+    color: #F8F7F4;
+  }
+}
+
+@layer components {
+  .hairline {
+    @apply border border-rule;
+  }
+  .hairline-b {
+    @apply border-b border-rule;
+  }
+  .hairline-t {
+    @apply border-t border-rule;
+  }
+  .hairline-r {
+    @apply border-r border-rule;
+  }
+  .input {
+    @apply w-full bg-card hairline rounded-none px-3 py-2 font-mono text-sm text-ink placeholder:text-mute focus:outline-none focus:border-accent;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-none border border-ink bg-ink text-paper hover:bg-accent hover:border-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-none border border-rule bg-card text-ink hover:border-ink transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-none border border-accent bg-accent text-paper hover:bg-ink hover:border-ink transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider border border-rule;
+  }
+  .pill-pk {
+    @apply pill border-ink text-ink bg-paper;
+  }
+  .pill-fk {
+    @apply pill border-flag text-flag;
+  }
+  .pill-nullable {
+    @apply pill text-mute;
+  }
+  .pill-not-null {
+    @apply pill text-ink;
+  }
+  .pill-sensitivity-sensitive {
+    @apply pill border-flag text-flag;
+  }
+  .pill-sensitivity-neutral {
+    @apply pill text-mute;
+  }
+  .pill-sensitivity-unknown {
+    @apply pill border-rule text-ink;
+  }
+}

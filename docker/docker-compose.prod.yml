@@ -1,0 +1,139 @@
+# Production docker-compose for the AI Data Anonymization Platform.
+#
+# This stack adds TLS (Caddy), Docker secrets for sensitive values,
+# and an API-key gate in front of Ollama so the inference endpoint
+# isn't open to the wider network.
+#
+# Usage:
+#   1. Copy docker/.env.prod.example → .env.prod  (edit the values)
+#   2. Generate a 32-byte hex key for JWT_SECRET_KEY:
+#        python -c "import secrets; print(secrets.token_hex(32))"
+#   3. Generate a 32-byte base64 key for CREDENTIAL_ENCRYPTION_KEY:
+#        python -c "import base64,os; print(base64.b64encode(os.urandom(32)).decode())"
+#   4. Create Docker secrets:
+#        echo "your-jwt-secret" | docker secret create jwt_secret_key -
+#        echo "your-enc-key"    | docker secret create credential_encryption_key -
+#        echo "your-db-pass"    | docker secret create mssql_sa_password -
+#        echo "your-ollama-key" | docker secret create ollama_api_key -
+#   5. docker stack deploy -c docker/docker-compose.prod.yml anonymizer
+#      or: docker compose -f docker/docker-compose.prod.yml up -d
+#
+# Note: The MSSQL server this platform connects to is expected to be an
+# EXTERNAL instance (not this compose). Set the MSSQL connection details
+# through the UI after the stack is running.
+
+services:
+  # --- Caddy reverse proxy (auto-TLS via Let's Encrypt) ---
+  caddy:
+    image: caddy:2-alpine
+    container_name: ai-anonymizer-caddy
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # --- Backend API ---
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    image: ai-anonymizer-backend:latest
+    container_name: ai-anonymizer-backend
+    environment:
+      # Non-secret config via env vars
+      DATABASE_URL: "${DATABASE_URL}"
+      LLM_PROVIDER: "ollama"
+      OLLAMA_BASE_URL: "http://ollama:11434"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.1:8b}"
+      BACKUP_DIR: "/backups"
+      BACKUP_KEEP: "${BACKUP_KEEP:-5}"
+      BOOTSTRAP_ADMIN_USERNAME: "${BOOTSTRAP_ADMIN_USERNAME:-admin}"
+      BOOTSTRAP_ADMIN_PASSWORD: "${BOOTSTRAP_ADMIN_PASSWORD}"
+      ALLOW_REMOTE_LLM: "false"
+    secrets:
+      - jwt_secret_key
+      - credential_encryption_key
+    volumes:
+      - backups:/backups
+    depends_on:
+      ollama:
+        condition: service_started
+    # Not exposed to host — only reachable via Caddy
+    expose:
+      - "8765"
+    restart: unless-stopped
+
+  # --- Frontend (nginx) ---
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    image: ai-anonymizer-frontend:latest
+    container_name: ai-anonymizer-frontend
+    depends_on:
+      - backend
+    # Not exposed to host — only reachable via Caddy
+    expose:
+      - "5173"
+    restart: unless-stopped
+
+  # --- Ollama (local LLM inference) ---
+  ollama:
+    image: ollama/ollama:0.3.12
+    container_name: ai-anonymizer-ollama
+    volumes:
+      - ollama:/root/.ollama
+    # Only the backend container reaches Ollama; not exposed to host
+    expose:
+      - "11434"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # --- Ollama API key gate (nginx reverse proxy) ---
+  # Optional: sits in front of Ollama and requires an API key.
+  # Only useful if other services on the Docker network could
+  # reach Ollama directly. Uncomment the ollama-api-gate service
+  # and change OLLAMA_BASE_URL to http://ollama-api-gate:8080
+  # in the backend service above.
+  #
+  # ollama-api-gate:
+  #   image: nginx:alpine
+  #   container_name: ai-anonymizer-ollama-gate
+  #   volumes:
+  #     - ./ollama-api-gate.conf:/etc/nginx/conf.d/default.conf:ro
+  #   secrets:
+  #     - ollama_api_key
+  #   depends_on:
+  #     - ollama
+  #   expose:
+  #     - "8080"
+  #   restart: unless-stopped
+
+volumes:
+  backups:
+  ollama:
+  caddy-data:
+  caddy-config:
+
+secrets:
+  jwt_secret_key:
+    external: true
+  credential_encryption_key:
+    external: true
+  # mssql_sa_password:
+  #   external: true
+  # ollama_api_key:
+  #   external: true

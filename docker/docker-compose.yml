@@ -1,0 +1,77 @@
+# Docker Compose for the AI Data Anonymization Platform.
+#
+# Local development stack:
+# backend, frontend, and disposable MSSQL.
+# Ollama runs locally on the Windows host.
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+    image: ai-anonymizer-backend:latest
+    container_name: ai-anonymizer-backend
+    environment:
+      DATABASE_URL: "mssql+pyodbc://sa:${MSSQL_SA_PASSWORD:?set MSSQL_SA_PASSWORD}@mssql:1433/anonymizer_app?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes"
+      JWT_SECRET_KEY: "${JWT_SECRET_KEY:?set JWT_SECRET_KEY}"
+      CREDENTIAL_ENCRYPTION_KEY: "${CREDENTIAL_ENCRYPTION_KEY:?set CREDENTIAL_ENCRYPTION_KEY}"
+      LLM_PROVIDER: "ollama"
+      OLLAMA_BASE_URL: "http://host.docker.internal:11434"
+      OLLAMA_MODEL: "qwen2.5:7b"
+      BACKUP_DIR: "/backups"
+      BACKUP_KEEP: "5"
+      # Optional first-run bootstrap admin (parity with
+      # docker-compose.prod.yml). When set, the first POST /auth/login
+      # creates this admin; if the account already exists but the
+      # password does not match, the stored hash is refreshed so a
+      # mistyped first-run password can be corrected. Leave the
+      # password unset in shared environments.
+      BOOTSTRAP_ADMIN_USERNAME: "${BOOTSTRAP_ADMIN_USERNAME:-admin}"
+      BOOTSTRAP_ADMIN_PASSWORD: "${BOOTSTRAP_ADMIN_PASSWORD:-}"
+    volumes:
+      - backups:/backups
+    depends_on:
+      mssql:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8766:8765"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    image: ai-anonymizer-frontend:latest
+    container_name: ai-anonymizer-frontend
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:5173:5173"
+    restart: unless-stopped
+
+  # Disposable SQL Server for local development and validators.
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ai-anonymizer-mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?set MSSQL_SA_PASSWORD}"
+    ports:
+      - "127.0.0.1:1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+      - ./backups:/var/opt/mssql/backups
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  backups:
+  mssql-data:

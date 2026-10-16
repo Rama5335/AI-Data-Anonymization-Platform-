@@ -1,0 +1,42 @@
+# Caddyfile for AI Data Anonymization Platform (production).
+#
+# Replace example.com with your actual domain. Caddy will
+# automatically obtain and renew a TLS certificate from Let's Encrypt.
+#
+# If you're running on an internal network without a public DNS name,
+# replace the TLS block with a self-signed approach or use the HTTP
+# fallback below.
+
+# --- Option 1: Public domain with auto-TLS (recommended) ---
+# example.com {
+#     reverse_proxy backend:8765
+#
+#     # Rate-limit login attempts
+#     @login path /auth/login
+#     rate_limit @login {
+#         zone login_limit {
+#             key {remote_host}
+#             events 10
+#             window 1m
+#         }
+#     }
+#
+#     log {
+#         output file /var/log/caddy/access.log
+#     }
+# }
+
+# --- Option 2: Local / internal network (no TLS) ---
+:443 {
+    reverse_proxy backend:8765
+
+    log {
+        output stdout
+        format json
+    }
+}
+
+# HTTP → HTTPS redirect
+:80 {
+    redir https://{host}{uri} permanent
+}

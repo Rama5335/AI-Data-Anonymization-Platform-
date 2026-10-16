@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-data-anonymization-backend"
+version = "0.1.0"
+description = "Offline-first AI data anonymization platform backend"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "alembic>=1.13,<2.0",
+  "cryptography>=43,<45",
+  "faker>=24.0,<30.0",
+  "fastapi>=0.115,<1.0",
+  "langgraph>=0.2,<2.0",
+  "loguru>=0.7,<1.0",
+  "pwdlib[argon2]>=0.2,<1.0",
+  "pydantic-settings>=2.5,<3.0",
+  "PyJWT>=2.9,<3.0",
+  "pyodbc>=5.1,<6.0",
+  "requests>=2.32,<3.0",
+  "sqlalchemy>=2.0,<3.0",
+  "uvicorn[standard]>=0.30,<1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "black>=24.10,<26.0",
+  "httpx>=0.27,<1.0",
+  "pytest>=8.3,<9.0",
+  "ruff>=0.8,<1.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "live: live integration tests that need a real MSSQL; skipped in unit CI",
+]
+filterwarnings = [
+  "ignore::starlette.exceptions.StarletteDeprecationWarning",
+  "ignore:Using `httpx` with `starlette.testclient` is deprecated:DeprecationWarning",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311"]
+extend-exclude = '''
+/(
+    \.cpython311-venv
+  | \.venv
+  | \.verification-venv
+  | \.validation-work
+  | \.pytest_cache
+  | \.ruff_cache
+  | build
+  | dist
+  | migrations/versions
+)/
+'''
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+extend-exclude = [
+  ".cpython311-venv",
+  ".venv",
+  ".verification-venv",
+  ".validation-work",
+  ".pytest_cache",
+  ".ruff_cache",
+  "build",
+  "dist",
+  "migrations/versions",
+]
