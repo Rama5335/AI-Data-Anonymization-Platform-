@@ -21,7 +21,17 @@ import type {
 } from "./lib/types";
 
 type Log = { at: number; label: string; ok: boolean };
-type Tab = "schema" | "approval" | "backup" | "execution" | "audit" | "workflow" | "settings" | "servers" | "users";
+type Tab =
+  | "dashboard"
+  | "schema"
+  | "approval"
+  | "backup"
+  | "execution"
+  | "audit"
+  | "workflow"
+  | "settings"
+  | "servers"
+  | "users";
 
 const DEFAULT_CONNECTION: ConnectionDetails = {
   host: "127.0.0.1",
@@ -37,6 +47,7 @@ const DEFAULT_CONNECTION: ConnectionDetails = {
 };
 
 const TAB_TITLES: Record<Tab, string> = {
+  dashboard: "Dashboard",
   schema: "Schema & Sample",
   approval: "Approval Center",
   backup: "Backup Center",
@@ -47,7 +58,6 @@ const TAB_TITLES: Record<Tab, string> = {
   servers: "Servers",
   users: "Users (admin)",
 };
-
 function Inner() {
   const { state, logout } = useAuth();
 
@@ -85,13 +95,16 @@ function AppShell(props: { user: { id: string; username: string; role: string };
   const [log, setLog] = useState<Log[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
-  const [tab, setTab] = useState<Tab>("schema");
+  const [tab, setTab] = useState<Tab>("dashboard");
   const [authError, setAuthError] = useState<string | null>(null);
 
   const [testing, setTesting] = useState(false);
   const [listing, setListing] = useState(false);
   const [listingSchemas, setListingSchemas] = useState(false);
   const [discovering, setDiscovering] = useState(false);
+
+// Workspace sidebar open / close
+   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const target = useMemo(() => {
     const db = selectedDatabase ?? "—";
@@ -258,24 +271,56 @@ function AppShell(props: { user: { id: string; username: string; role: string };
 
       <main className="flex-1">
         <div className="mx-auto max-w-7xl px-6 py-8 space-y-6">
-          <nav className="hairline flex flex-wrap">
-            {(Object.keys(TAB_TITLES) as Tab[])
-              .filter((t) => (t === "users" ? isAdmin : true))
-              .map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTab(t)}
-                  className={
-                    t === tab
-                      ? "px-4 py-2 text-sm font-mono text-ink hairline-r"
-                      : "px-4 py-2 text-sm font-mono text-mute hairline-r hover:text-ink"
-                  }
-                >
-                  {TAB_TITLES[t]}
-                </button>
-              ))}
-          </nav>
+          
+<nav className="flex flex-col gap-1 rounded-2xl border border-pink-100 bg-white p-3 shadow-sm">
+  <p className="px-3 pb-2 pt-1 text-xs font-semibold uppercase tracking-widest text-purple-400">
+    Workspace
+  </p>
+
+  
+<div className="mb-4">
+  <button
+    type="button"
+    onClick={() => setSidebarOpen((open) => !open)}
+    aria-expanded={sidebarOpen}
+    className="flex w-full items-center justify-between rounded-2xl border border-pink-200 bg-white px-5 py-4 text-left font-semibold text-pink-800 shadow-sm transition hover:bg-pink-50"
+  >
+    <span className="flex items-center gap-3">
+      <span className="text-xl">{sidebarOpen ? "✕" : "☰"}</span>
+      <span>Workspace</span>
+    </span>
+
+    <span className="text-pink-500">
+      {sidebarOpen ? "Close" : "Open"}
+    </span>
+  </button>
+
+  {sidebarOpen && (
+    <div className="mt-3 grid grid-cols-1 gap-2 rounded-2xl border border-pink-100 bg-white p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-1">
+      {(Object.keys(TAB_TITLES) as Tab[])
+        .filter((t) => (t === "users" ? isAdmin : true))
+        .map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => {
+              setTab(t);
+              setSidebarOpen(false);
+            }}
+            className={
+              t === tab
+                ? "w-full rounded-xl border border-pink-200 bg-pink-100 px-4 py-3 text-left text-sm font-semibold text-pink-800 shadow-sm transition-colors"
+                : "w-full rounded-xl px-4 py-3 text-left text-sm text-slate-600 transition-colors hover:bg-pink-50 hover:text-pink-700"
+            }
+          >
+            {TAB_TITLES[t]}
+          </button>
+        ))}
+    </div>
+  )}
+</div>
+
+</nav>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <aside className="lg:col-span-1 space-y-6">
@@ -356,51 +401,156 @@ function AppShell(props: { user: { id: string; username: string; role: string };
               </div>
             </aside>
 
-            <section className="lg:col-span-2">
-              {tab === "schema" ? (
-                <SchemaViewer
-                  tables={discovered}
-                  jobId={jobId}
-                  conn={conn}
-                  selectedDatabase={selectedDatabase}
-                />
-              ) : null}
-              {tab === "approval" ? (
-                <ApprovalCenter jobId={jobId} conn={conn} />
-              ) : null}
-              {tab === "backup" ? (
-                <BackupCenter conn={conn} selectedDatabase={selectedDatabase} />
-              ) : null}
-              {tab === "execution" ? (
-                <ExecutionMonitor
-                  jobId={jobId}
-                  conn={conn}
-                  selectedDatabase={selectedDatabase}
-                />
-              ) : null}
-              {tab === "audit" ? <AuditLogView jobId={jobId} /> : null}
-              {tab === "workflow" ? (
-                <WorkflowView
-                  jobId={jobId}
-                  conn={conn}
-                  selectedDatabase={selectedDatabase}
-                />
-              ) : null}
-              {tab === "settings" ? (
-                <SettingsView />
-              ) : null}
-              {tab === "users" && isAdmin ? <UsersAdminTab /> : null}
-              {tab === "servers" ? (
-                <ServersTab
-                  activeServerId={activeServer?.id}
-                  onActivate={(s) => {
-                    setConn({ ...conn, host: s.host, port: s.port });
-                    setActiveServer({ id: s.id, name: s.name, host: s.host, port: s.port });
-                    setTab("schema");
-                  }}
-                />
-              ) : null}
-            </section>
+        
+<section className="lg:col-span-2">
+  {tab === "dashboard" ? (
+    <div className="space-y-6">
+      <div className="rounded-3xl border border-pink-200 bg-gradient-to-br from-pink-50 via-white to-pink-100 p-8 shadow-sm">
+        <p className="text-sm font-semibold uppercase tracking-widest text-pink-600">
+          Welcome to your workspace
+        </p>
+
+        <h2 className="mt-3 text-3xl font-bold text-pink-900">
+          Dashboard
+        </h2>
+
+        <p className="mt-2 text-pink-700">
+          Discover, review, and anonymize sensitive database information
+          in one secure workspace.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-pink-200 bg-white p-6 shadow-sm">
+          <p className="text-sm text-pink-600">Databases</p>
+          <p className="mt-3 text-3xl font-bold text-pink-900">
+            {databases.length}
+          </p>
+          <p className="mt-2 text-sm text-gray-500">
+            Databases found on the connected server
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-pink-200 bg-white p-6 shadow-sm">
+          <p className="text-sm text-pink-600">Discovered Tables</p>
+          <p className="mt-3 text-3xl font-bold text-pink-900">
+            {tables.length}
+          </p>
+          <p className="mt-2 text-sm text-gray-500">
+            Tables and views currently loaded
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-pink-200 bg-white p-6 shadow-sm">
+          <p className="text-sm text-pink-600">Pending Approvals</p>
+          <p className="mt-3 text-3xl font-bold text-pink-900">—</p>
+          <p className="mt-2 text-sm text-gray-500">
+            Review detected sensitive fields
+          </p>
+          <button
+            onClick={() => setTab("approval")}
+            className="btn-ghost mt-4"
+          >
+            Open Approval Center →
+          </button>
+        </div>
+
+        <div className="rounded-2xl border border-pink-200 bg-white p-6 shadow-sm">
+          <p className="text-sm text-pink-600">Anonymization</p>
+          <p className="mt-3 text-3xl font-bold text-pink-900">—</p>
+          <p className="mt-2 text-sm text-gray-500">
+            Check execution status and history
+          </p>
+          <button
+            onClick={() => setTab("execution")}
+            className="btn-ghost mt-4"
+          >
+            Open Execution Monitor →
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-pink-200 bg-white p-6 shadow-sm">
+        <h3 className="text-lg font-bold text-pink-900">
+          Anonymization Workflow
+        </h3>
+
+        <p className="mt-2 text-sm text-gray-500">
+          Follow these steps to process your database safely.
+        </p>
+
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {[
+            "01 · Connect",
+            "02 · Discover",
+            "03 · Classify",
+            "04 · Approve",
+            "05 · Backup",
+            "06 · Anonymize",
+          ].map((step) => (
+            <div
+              key={step}
+              className="rounded-xl bg-pink-50 px-4 py-3 text-sm font-medium text-pink-800"
+            >
+              {step}
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={() => setTab("workflow")}
+          className="btn-accent mt-5"
+        >
+          View Full Workflow →
+        </button>
+      </div>
+    </div>
+  ) : tab === "schema" ? (
+    <SchemaViewer
+      tables={discovered}
+      jobId={jobId}
+      conn={conn}
+      selectedDatabase={selectedDatabase}
+    />
+  ) : tab === "approval" ? (
+    <ApprovalCenter jobId={jobId} conn={conn} />
+  ) : tab === "backup" ? (
+    <BackupCenter conn={conn} selectedDatabase={selectedDatabase} />
+  ) : tab === "execution" ? (
+    <ExecutionMonitor
+      jobId={jobId}
+      conn={conn}
+      selectedDatabase={selectedDatabase}
+    />
+  ) : tab === "audit" ? (
+    <AuditLogView jobId={jobId} />
+  ) : tab === "workflow" ? (
+    <WorkflowView
+      jobId={jobId}
+      conn={conn}
+      selectedDatabase={selectedDatabase}
+    />
+  ) : tab === "settings" ? (
+    <SettingsView />
+  ) : tab === "users" && isAdmin ? (
+    <UsersAdminTab />
+  ) : tab === "servers" ? (
+    <ServersTab
+      activeServerId={activeServer?.id}
+      onActivate={(s) => {
+        setConn({ ...conn, host: s.host, port: s.port });
+        setActiveServer({
+          id: s.id,
+          name: s.name,
+          host: s.host,
+          port: s.port,
+        });
+        setTab("schema");
+      }}
+    />
+  ) : null}
+</section>
+
           </div>
         </div>
       </main>

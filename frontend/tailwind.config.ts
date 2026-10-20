@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 const config: Config = {
@@ -5,18 +6,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#0F172A",
-        paper: "#F8F7F4",
+        ink: "#493747",
+        paper: "#FFF7FB",
         card: "#FFFFFF",
-        rule: "#E5E1D8",
-        accent: "#0EA5A4",
-        flag: "#B45309",
-        mute: "#64748B",
+        rule: "#F0DFEA",
+        accent: "#DB2777",
+        flag: "#BE123C",
+        mute: "#8B7788",
       },
       fontFamily: {
         display: ['"IBM Plex Serif"', "ui-serif", "Georgia", "serif"],
         body: ['"IBM Plex Sans"', "ui-sans-serif", "system-ui", "sans-serif"],
-        mono: ['"JetBrains Mono"', "ui-monospace", "SFMono-Regular", "monospace"],
+        mono: [
+          '"JetBrains Mono"',
+          "ui-monospace",
+          "SFMono-Regular",
+          "monospace",
+        ],
       },
     },
   },
