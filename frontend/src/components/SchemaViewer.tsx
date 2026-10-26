@@ -38,6 +38,10 @@ function isObjectType(t: DiscoveredTableOut["object_type"]): boolean {
   return t.toUpperCase() === "BASE TABLE";
 }
 
+function tableKey(schemaName: string, tableName: string): string {
+  return `${schemaName}.${tableName}`;
+}
+
 function CellDisplay({ cell }: { cell: SampleCellOut | undefined }) {
   if (cell === undefined) {
     return <span className="text-mute">—</span>;
@@ -436,7 +440,7 @@ export function SchemaViewer({
       .then((res) => {
         const byTable: Record<string, ClassificationResultOut[]> = {};
         for (const r of res.results) {
-          const key = r.table_name;
+          const key = tableKey(r.schema_name, r.table_name);
           if (!byTable[key]) byTable[key] = [];
           byTable[key].push(r);
         }
@@ -476,27 +480,27 @@ export function SchemaViewer({
       });
   }
 
-  function handleClassify(table_id: string, table_name: string) {
-    setClassifyStates((s) => ({ ...s, [table_id]: { kind: "loading" } }));
+  function handleClassify(table: DiscoveredTableOut) {
+    const key = tableKey(table.schema_name, table.table_name);
+    setClassifyStates((s) => ({ ...s, [key]: { kind: "loading" } }));
     api
-      .classifyTable(table_id, 3)
+      .classifyTable(table.id, 3)
       .then((res) => {
         startTransition(() => {
           setClassifications((prev) => ({
             ...Object.fromEntries(
-              Object.entries(prev).filter(([tid]) => tid !== table_id),
+              Object.entries(prev).filter(([k]) => k !== key),
             ),
-            [table_id]: res.results,
+            [key]: res.results,
           }));
-          setClassifyStates((s) => ({ ...s, [table_id]: { kind: "ready" } }));
+          setClassifyStates((s) => ({ ...s, [key]: { kind: "ready" } }));
         });
-        void table_name;
       })
       .catch((err) => {
         startTransition(() => {
           setClassifyStates((s) => ({
             ...s,
-            [table_id]: { kind: "error", message: (err as Error).message },
+            [key]: { kind: "error", message: (err as Error).message },
           }));
         });
       });
@@ -510,7 +514,7 @@ export function SchemaViewer({
       .then((res) => {
         const byTable: Record<string, ClassificationResultOut[]> = {};
         for (const r of res.results) {
-          const key = r.table_name;
+          const key = tableKey(r.schema_name, r.table_name);
           if (!byTable[key]) byTable[key] = [];
           byTable[key].push(r);
         }
@@ -554,15 +558,16 @@ export function SchemaViewer({
         </div>
       </header>
       {tables.map((t) => {
+        const key = tableKey(t.schema_name, t.table_name);
         const sample = samples[t.id];
-        const classifyState = classifyStates[t.id] ?? { kind: "idle" };
+        const classifyState = classifyStates[key] ?? { kind: "idle" };
         return (
           <div key={t.id}>
             <TableRowWithSample
               table={t}
-              classifications={classifications[t.id] ?? []}
+              classifications={classifications[key] ?? []}
               classifyState={classifyState}
-              onClassify={() => handleClassify(t.id, t.table_name)}
+              onClassify={() => handleClassify(t)}
               onSample={(e) => handleSample(t.id, e)}
             />
             {sample && "row_count" in sample ? (

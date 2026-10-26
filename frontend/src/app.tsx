@@ -102,6 +102,9 @@ function AppShell(props: { user: { id: string; username: string; role: string };
   const [listing, setListing] = useState(false);
   const [listingSchemas, setListingSchemas] = useState(false);
   const [discovering, setDiscovering] = useState(false);
+  const [pendingApprovals, setPendingApprovals] = useState<number | null>(null);
+  const [approvalCount, setApprovalCount] = useState<number | null>(null);
+  const [workflowPhase, setWorkflowPhase] = useState<string | null>(null);
 
 // Workspace sidebar open / close
    const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -234,6 +237,44 @@ function AppShell(props: { user: { id: string; username: string; role: string };
     }, 30_000);
     return () => window.clearInterval(t);
   }, []);
+
+  // Live dashboard counters for the current job. Refetched when the
+  // Dashboard tab becomes visible so decisions made elsewhere (approval,
+  // workflow transitions) are reflected immediately.
+  useEffect(() => {
+    if (!jobId) {
+      setPendingApprovals(null);
+      setApprovalCount(null);
+      setWorkflowPhase(null);
+      return;
+    }
+    let cancelled = false;
+    void Promise.allSettled([
+      api.listPending(jobId),
+      api.listApprovals(jobId),
+      api.getWorkflowState(jobId),
+    ]).then(([pending, approvals, workflow]) => {
+      if (cancelled) return;
+      setPendingApprovals(
+        pending.status === "fulfilled" ? pending.value.items.length : null,
+      );
+      setApprovalCount(
+        approvals.status === "fulfilled"
+          ? approvals.value.filter(
+              (a) =>
+                !a.excluded &&
+                (a.decision === "approve" || a.decision === "override"),
+            ).length
+          : null,
+      );
+      setWorkflowPhase(
+        workflow.status === "fulfilled" ? workflow.value.phase : null,
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [jobId, tab]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -443,9 +484,13 @@ function AppShell(props: { user: { id: string; username: string; role: string };
 
         <div className="rounded-2xl border border-pink-200 bg-white p-6 shadow-sm">
           <p className="text-sm text-pink-600">Pending Approvals</p>
-          <p className="mt-3 text-3xl font-bold text-pink-900">—</p>
+          <p className="mt-3 text-3xl font-bold text-pink-900">
+            {pendingApprovals ?? "—"}
+          </p>
           <p className="mt-2 text-sm text-gray-500">
-            Review detected sensitive fields
+            {jobId
+              ? "Detected sensitive fields awaiting review"
+              : "Run a discovery to create a review queue"}
           </p>
           <button
             onClick={() => setTab("approval")}
@@ -457,9 +502,13 @@ function AppShell(props: { user: { id: string; username: string; role: string };
 
         <div className="rounded-2xl border border-pink-200 bg-white p-6 shadow-sm">
           <p className="text-sm text-pink-600">Anonymization</p>
-          <p className="mt-3 text-3xl font-bold text-pink-900">—</p>
+          <p className="mt-3 text-2xl font-bold capitalize text-pink-900">
+            {workflowPhase ? workflowPhase.split("_").join(" ") : "—"}
+          </p>
           <p className="mt-2 text-sm text-gray-500">
-            Check execution status and history
+            {jobId
+              ? `${approvalCount ?? 0} approved columns · current workflow stage`
+              : "Check execution status and history"}
           </p>
           <button
             onClick={() => setTab("execution")}
@@ -515,7 +564,11 @@ function AppShell(props: { user: { id: string; username: string; role: string };
   ) : tab === "approval" ? (
     <ApprovalCenter jobId={jobId} conn={conn} />
   ) : tab === "backup" ? (
-    <BackupCenter conn={conn} selectedDatabase={selectedDatabase} />
+    <BackupCenter
+      conn={conn}
+      selectedDatabase={selectedDatabase}
+      jobId={jobId}
+    />
   ) : tab === "execution" ? (
     <ExecutionMonitor
       jobId={jobId}

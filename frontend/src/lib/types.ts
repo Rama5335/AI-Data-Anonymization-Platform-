@@ -175,9 +175,19 @@ export type BackupResult = {
   kept_after: number;
 };
 
+export type BackupRecord = {
+  backup_path: string;
+  database: string;
+  size_bytes: number;
+  verified: boolean;
+  created_at: string;
+  job_id: string | null;
+};
+
 export type BackupList = {
   backup_dir: string;
   files: string[];
+  records: BackupRecord[];
 };
 
 export type UpdatePlan = {

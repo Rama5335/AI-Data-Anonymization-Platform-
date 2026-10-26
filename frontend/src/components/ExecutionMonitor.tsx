@@ -1,12 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type {
+  BackupList,
   ConnectionDetails,
   UpdatePlan,
   UpdateResult,
 } from "../lib/types";
 
-type Props = { jobId: string | null; conn: ConnectionDetails; selectedDatabase: string | null };
+type Props = {
+  jobId: string | null;
+  conn: ConnectionDetails;
+  selectedDatabase: string | null;
+};
 
 export function ExecutionMonitor({ jobId, conn, selectedDatabase }: Props) {
   const [plans, setPlans] = useState<UpdatePlan[]>([]);
@@ -15,7 +20,26 @@ export function ExecutionMonitor({ jobId, conn, selectedDatabase }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState<string>("");
   const [backupPath, setBackupPath] = useState<string>("");
+  const [backupList, setBackupList] = useState<BackupList | null>(null);
   const [lastRun, setLastRun] = useState<{ dry_run: boolean; rows: number } | null>(null);
+
+  useEffect(() => {
+    if (!selectedDatabase) {
+      setBackupList(null);
+      return;
+    }
+    api
+      .listBackups(selectedDatabase)
+      .then((r) => {
+        setBackupList(r);
+        const verified = (r.records ?? []).find((rec) => rec.verified);
+        if (verified && !backupPath) {
+          setBackupPath(verified.backup_path);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDatabase]);
 
   if (!jobId || !selectedDatabase) {
     return (
@@ -150,12 +174,29 @@ export function ExecutionMonitor({ jobId, conn, selectedDatabase }: Props) {
         </p>
         <label className="block text-[11px] font-mono">
           <span className="text-mute">expected_backup_path</span>
-          <input
-            className="input mt-1"
-            placeholder="/var/opt/mssql/backups/anonymizer_app_*.bak"
-            value={backupPath}
-            onChange={(e) => setBackupPath(e.target.value)}
-          />
+          {(backupList?.records ?? []).some((r) => r.verified) ? (
+            <select
+              className="input mt-1 text-[11px]"
+              value={backupPath}
+              onChange={(e) => setBackupPath(e.target.value)}
+            >
+              <option value="">-- select a verified backup --</option>
+              {(backupList?.records ?? [])
+                .filter((r) => r.verified)
+                .map((r) => (
+                  <option key={r.backup_path} value={r.backup_path}>
+                    {r.backup_path}
+                  </option>
+                ))}
+            </select>
+          ) : (
+            <input
+              className="input mt-1"
+              placeholder="/var/opt/mssql/backups/anonymizer_app_*.bak"
+              value={backupPath}
+              onChange={(e) => setBackupPath(e.target.value)}
+            />
+          )}
         </label>
         <label className="block text-[11px] font-mono">
           <span className="text-mute">
@@ -174,7 +215,7 @@ export function ExecutionMonitor({ jobId, conn, selectedDatabase }: Props) {
           disabled={confirmText !== "MASK AND UPDATE" || !backupPath || busy !== null}
           onClick={handleApply}
         >
-          {busy === "apply" ? "Applying…" : "Apply (irreversible)"}
+          {busy === "apply" ? "Applying..." : "Apply (irreversible)"}
         </button>
       </div>
     </div>

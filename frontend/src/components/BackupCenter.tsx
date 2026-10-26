@@ -1,10 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
-import type { ConnectionDetails, BackupList, BackupResult } from "../lib/types";
+import type {
+  BackupList,
+  BackupRecord,
+  BackupResult,
+  ConnectionDetails,
+} from "../lib/types";
 
-type Props = { conn: ConnectionDetails; selectedDatabase: string | null };
+type Props = {
+  conn: ConnectionDetails;
+  selectedDatabase: string | null;
+  jobId: string | null;
+};
 
-export function BackupCenter({ conn, selectedDatabase }: Props) {
+export function BackupCenter({ conn, selectedDatabase, jobId }: Props) {
   const [list, setList] = useState<BackupList | null>(null);
   const [busy, setBusy] = useState<boolean>(false);
   const [last, setLast] = useState<BackupResult | null>(null);
@@ -14,12 +23,35 @@ export function BackupCenter({ conn, selectedDatabase }: Props) {
   const [rollbackBusy, setRollbackBusy] = useState<boolean>(false);
   const [rollbackResult, setRollbackResult] = useState<string | null>(null);
 
+  const records = useMemo<BackupRecord[]>(() => {
+    if (!list) return [];
+    if (list.records.length > 0) return list.records;
+    // Backwards compatibility with an API that only returned paths.
+    return list.files.map((path) => ({
+      backup_path: path,
+      database: selectedDatabase ?? "",
+      size_bytes: 0,
+      verified: false,
+      created_at: "",
+      job_id: null,
+    }));
+  }, [list, selectedDatabase]);
+
+  const verifiedRecords = useMemo(
+    () => records.filter((r) => r.verified),
+    [records],
+  );
+
   async function refresh() {
     setBusy(true);
     try {
       const r = await api.listBackups(selectedDatabase);
       setList(r);
       setError(null);
+      const newestVerified = r.records.find((rec) => rec.verified);
+      if (newestVerified) {
+        setRollbackPath((current) => current || newestVerified.backup_path);
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -41,8 +73,10 @@ export function BackupCenter({ conn, selectedDatabase }: Props) {
         { ...conn, database: selectedDatabase },
         selectedDatabase,
         keep,
+        jobId,
       );
       setLast(res);
+      setRollbackPath(res.backup_path);
       await refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -76,8 +110,14 @@ export function BackupCenter({ conn, selectedDatabase }: Props) {
       <header className="flex items-center gap-3 hairline-b pb-3">
         <p className="font-display text-lg text-ink">Backup Center</p>
         <p className="text-xs text-mute">
-          {selectedDatabase ?? "no database selected"} · native BACKUP DATABASE · keep
-          last <span className="font-mono">{keep}</span>
+          {selectedDatabase ?? "no database selected"}
+          {jobId ? (
+            <>
+              {" "}· job <span className="font-mono">{jobId.slice(0, 8)}</span>
+            </>
+          ) : null}{" "}
+          · native BACKUP DATABASE · keep last{" "}
+          <span className="font-mono">{keep}</span>
         </p>
         <div className="ml-auto flex items-center gap-2 text-[11px] font-mono">
           <label className="text-mute">keep</label>
@@ -109,7 +149,7 @@ export function BackupCenter({ conn, selectedDatabase }: Props) {
         <div className="hairline p-3 text-[11px] font-mono">
           <span className="text-accent">✓</span> last backup ·{" "}
           <span className="text-ink">{last.backup_path}</span> ·{" "}
-          {last.size_bytes.toLocaleString()} bytes ·{" "}
+          {last.size_bytes > 0 ? formatBytes(last.size_bytes) : "size unavailable"} ·{" "}
           {last.verified ? "verified" : "unverified"} ·{" "}
           kept {last.kept_after}
         </div>
@@ -117,10 +157,10 @@ export function BackupCenter({ conn, selectedDatabase }: Props) {
       {rollbackResult ? (
         <div className="hairline p-3 text-[11px] font-mono text-accent">{rollbackResult}</div>
       ) : null}
-      {list && list.files.length > 0 ? (
+      {verifiedRecords.length > 0 ? (
         <div className="hairline">
           <p className="px-4 py-2 text-[11px] font-mono text-mute hairline-b">
-            Rollback from backup
+            Rollback from verified backup
           </p>
           <div className="flex items-center gap-2 px-4 py-3">
             <select
@@ -128,9 +168,11 @@ export function BackupCenter({ conn, selectedDatabase }: Props) {
               value={rollbackPath}
               onChange={(e) => setRollbackPath(e.target.value)}
             >
-              <option value="">-- select a backup to restore --</option>
-              {list.files.map((f) => (
-                <option key={f} value={f}>{f.split(/[\\/]/).pop()}</option>
+              <option value="">-- select a verified backup to restore --</option>
+              {verifiedRecords.map((rec) => (
+                <option key={rec.backup_path} value={rec.backup_path}>
+                  {fileName(rec.backup_path)} · {formatBytes(rec.size_bytes)}
+                </option>
               ))}
             </select>
             <button
@@ -144,25 +186,40 @@ export function BackupCenter({ conn, selectedDatabase }: Props) {
           </div>
         </div>
       ) : null}
-      {list && list.files.length > 0 ? (
+      {records.length > 0 ? (
         <div className="hairline">
           <table className="w-full font-mono text-xs">
             <thead>
               <tr className="text-left text-mute">
                 <th className="px-4 py-2 font-normal">file</th>
+                <th className="px-2 py-2 font-normal">database</th>
                 <th className="px-2 py-2 font-normal text-right">size</th>
+                <th className="px-2 py-2 font-normal">state</th>
+                <th className="px-2 py-2 font-normal">created</th>
+                <th className="px-4 py-2 font-normal">job</th>
               </tr>
             </thead>
             <tbody>
-              {list.files.map((p) => {
-                const size = fileSize(p);
-                return (
-                  <tr key={p} className="hairline-t">
-                    <td className="px-4 py-2 text-ink">{p}</td>
-                    <td className="px-2 py-2 text-right text-mute">{size}</td>
-                  </tr>
-                );
-              })}
+              {records.map((rec) => (
+                <tr key={rec.backup_path} className="hairline-t">
+                  <td className="px-4 py-2 text-ink">{fileName(rec.backup_path)}</td>
+                  <td className="px-2 py-2 text-ink">{rec.database || "—"}</td>
+                  <td className="px-2 py-2 text-right text-mute">
+                    {rec.size_bytes > 0 ? formatBytes(rec.size_bytes) : "—"}
+                  </td>
+                  <td className="px-2 py-2">
+                    {rec.verified ? (
+                      <span className="text-accent">verified</span>
+                    ) : (
+                      <span className="text-flag">unverified</span>
+                    )}
+                  </td>
+                  <td className="px-2 py-2 text-mute">{formatTime(rec.created_at)}</td>
+                  <td className="px-4 py-2 text-mute">
+                    {rec.job_id ? rec.job_id.slice(0, 8) : "—"}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -179,9 +236,24 @@ export function BackupCenter({ conn, selectedDatabase }: Props) {
   );
 }
 
-function fileSize(path: string): string {
-  // We don't have a stat API; show the path's last segment as a
-  // visual cue. The .bak is the source of truth on disk.
-  const seg = path.split(/[\\/]/).pop() ?? path;
-  return seg;
+function fileName(path: string): string {
+  return path.split(/[\\/]/).pop() ?? path;
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "—";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function formatTime(value: string): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
 }

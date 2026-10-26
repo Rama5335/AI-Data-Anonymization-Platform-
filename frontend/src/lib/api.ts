@@ -210,11 +210,13 @@ export const api = {
     connection: ConnectionDetails,
     database: string | null,
     keep: number | null = null,
+    job_id: string | null = null,
   ) =>
     postJson<BackupResult>("/backups", {
       connection,
       database,
       keep,
+      job_id,
     }),
 
   listBackups: (database: string | null = null) => {
