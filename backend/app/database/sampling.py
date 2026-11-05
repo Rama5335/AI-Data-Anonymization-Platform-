@@ -20,7 +20,6 @@ from typing import Any
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import URL
 
-
 DEFAULT_MAX_BYTES_PER_VALUE = 512
 DEFAULT_ROW_COUNT = 5
 MAX_ROW_COUNT = 1000

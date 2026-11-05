@@ -350,11 +350,12 @@ def test_classification_agent_surfaces_transport_error(monkeypatch, tmp_path) ->
 
 
 def test_classification_agent_upserts_on_second_call(monkeypatch, tmp_path) -> None:
+    from sqlalchemy import select
+
     from app.agents.classification import ClassificationAgent
     from app.classification.factory import get_mock_client
     from app.database.session import session_scope
     from app.models.entities import ClassificationResult
-    from sqlalchemy import select
 
     job_id, _, email_col_id, _user_id, _ = _bootstrap_with_sample(monkeypatch, tmp_path)
     shared = get_mock_client()

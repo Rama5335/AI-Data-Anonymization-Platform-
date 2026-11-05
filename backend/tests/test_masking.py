@@ -292,7 +292,7 @@ def test_orchestrator_mask_emits_token_vault_row(monkeypatch, tmp_path):
     with session_scope() as session:
         MaskingOrchestrator(session).prepare(job_id)
         # The seed approved Customers.Email as Fake Email; flip it to Tokenization.
-        from app.models.entities import ClassificationResult, Approval
+        from app.models.entities import Approval, ClassificationResult
 
         cls = (
             session.query(ClassificationResult)

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pyodbc
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.database.session import session_scope
@@ -17,7 +18,6 @@ from app.main import app
 from app.models import Base
 from app.models.entities import AuditLog, BackupRecord
 from app.security.passwords import hash_password
-from fastapi.testclient import TestClient
 
 client = TestClient(app)
 

@@ -1,6 +1,7 @@
 """Centralized baseline logging configuration."""
 
 import sys
+
 from loguru import logger
 
 _configured = False

@@ -64,7 +64,7 @@ export function LoginPage() {
           {busy ? "Signing in…" : "Sign in"}
         </button>
         <p className="text-[10px] font-mono text-mute">
-          bootstrap admin: <code className="text-ink">root</code> · token is kept in memory only
+          token is kept in memory only · ask an administrator for an account
         </p>
       </form>
     </div>

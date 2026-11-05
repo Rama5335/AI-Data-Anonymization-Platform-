@@ -41,7 +41,6 @@ from app.models.entities import (
 )
 from app.security.passwords import hash_password
 
-
 # ---------------------------------------------------------------------------
 # fixtures / helpers
 # ---------------------------------------------------------------------------

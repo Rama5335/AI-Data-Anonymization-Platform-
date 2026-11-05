@@ -9,6 +9,7 @@ Index of the project documentation.
 | [`SECURITY.md`](SECURITY.md) | Authentication / authorization model, backup gate, execution safety, rollback, append-only audit, secret handling. |
 | [`RUNBOOK.md`](RUNBOOK.md) | Operational procedures: start/stop, switch LLM, run validators, recover from a wipe, troubleshooting. |
 | [`PHASES.md`](PHASES.md) | Phase-by-phase delivery summary and test tallies. |
+| [`WEEK5_VERIFICATION_REPORT.md`](WEEK5_VERIFICATION_REPORT.md) | Week 5 final verification: test results, security checks, deployment preparation, and untested items. |
 | [`PER_LANGUAGE_LLM.md`](PER_LANGUAGE_LLM.md) | Notes on per-language LLM prompting. |
 | [`ITEMS_1_4_6_7.md`](ITEMS_1_4_6_7.md) | Item-specific notes (auth, etc.). |
 | `phaseN_validation_report.md` | Live-validation evidence for each phase that has one. |

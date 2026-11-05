@@ -8,8 +8,8 @@ exercised by ``scripts/validate_phase9.ps1`` which writes to a path
 inside the container.
 """
 
-from pathlib import Path
 import time
+from pathlib import Path
 
 import pyodbc
 import pytest

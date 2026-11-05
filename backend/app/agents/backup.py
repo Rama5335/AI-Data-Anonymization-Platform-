@@ -31,7 +31,6 @@ import pyodbc
 
 from app.schemas.discovery import ConnectionDetails
 
-
 DEFAULT_BACKUP_DIR = "./backups"
 DEFAULT_KEEP = 5
 _UNSAFE_NAME_RE = re.compile(r"[^A-Za-z0-9_]")

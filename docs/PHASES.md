@@ -24,6 +24,7 @@
 | Item 3 — LangGraph workflow refactor | ✅ | this file | 6 |
 | Item 4 — Servers UI (CRUD + probe) | ✅ | this file | 10 |
 | Security hardening (authz + backup gate + audit + correctness) | ✅ | `docs/SECURITY.md` | 77 |
+| Week 5 — Final verification | ✅ | `docs/WEEK5_VERIFICATION_REPORT.md` | 24 (22 config/CORS/health + 2 redaction) |
 
 \* Phases 1–3 covered the scaffolding and early discovery tests
 that are still present in the suite (application, discovery, mssql
@@ -58,18 +59,20 @@ the surrounding code.
 
 ```
 $ cd backend && pytest -q
-..................................................sssssss............  [100%]
-222 passed, 4 skipped in 57.37s
+247 passed, 4 skipped in 97.72s
 
 $ cd backend && ruff check .
 All checks passed!
 
-$ cd backend && black --check .
-87 files would be left unchanged.
+$ cd backend && python -m compileall -q app tests tools
+exit 0
+
+$ cd frontend && npm run lint
+(no errors)
 
 $ cd frontend && npm run build
 ✓ 45 modules transformed.
-✓ built in 1.19s
+✓ built in 1.04s
 ```
 
 Live validators (all pass):
@@ -81,9 +84,10 @@ Phase 6 validation: PASS (provider=ollama, model=llama3.1:8b)
 Phase 9 validation: PASS (real .bak written, 974 848 bytes)
 ```
 
-The 3 skipped tests are `BACKUP DATABASE` live tests that need a
-host+container-filesystem shared backup directory; the
-`validate_phase9.ps1` script exercises the real path via a
+The 4 skipped tests need live infrastructure: three `BACKUP DATABASE`
+tests that require a host+container-filesystem shared backup directory,
+and one server-probe test that requires a reachable MSSQL instance.
+The `validate_phase9.ps1` script exercises the real backup path via a
 bind-mounted volume.
 
 ## What was implemented

@@ -114,7 +114,7 @@ Write-Host "Starting API on 127.0.0.1:$appPort..."
 # Forward LLM env vars so the API can talk to Ollama (or fall back to mock).
 if (-not $env:LLM_PROVIDER) { $env:LLM_PROVIDER = "ollama" }
 if (-not $env:OLLAMA_BASE_URL) { $env:OLLAMA_BASE_URL = "http://127.0.0.1:11434" }
-if (-not $env:OLLAMA_MODEL) { $env:OLLAMA_MODEL = "llama3.1:8b" }
+if (-not $env:OLLAMA_MODEL) { $env:OLLAMA_MODEL = "qwen2.5:7b-instruct" }
 if (-not $env:OLLAMA_REQUEST_TIMEOUT_SECONDS) { $env:OLLAMA_REQUEST_TIMEOUT_SECONDS = "180" }
 Write-Host "  LLM_PROVIDER=$($env:LLM_PROVIDER)  OLLAMA_MODEL=$($env:OLLAMA_MODEL)  OLLAMA_BASE_URL=$($env:OLLAMA_BASE_URL)"
 $api = Start-Process -FilePath $venvPy -ArgumentList @(

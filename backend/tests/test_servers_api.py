@@ -11,7 +11,6 @@ from app.models.entities import Connection, User
 from app.security.passwords import hash_password
 from app.security.tokens import create_access_token
 
-
 client = TestClient(app)
 
 

@@ -37,12 +37,13 @@ services:
       - "443:443/udp"
     depends_on:
       - backend
+      - frontend
     restart: unless-stopped
 
   # --- Backend API ---
   backend:
     build:
-      context: .
+      context: ..
       dockerfile: docker/backend.Dockerfile
     image: ai-anonymizer-backend:latest
     container_name: ai-anonymizer-backend
@@ -51,12 +52,12 @@ services:
       DATABASE_URL: "${DATABASE_URL}"
       LLM_PROVIDER: "ollama"
       OLLAMA_BASE_URL: "http://ollama:11434"
-      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.1:8b}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen2.5:7b-instruct}"
+      CORS_ORIGINS: "${CORS_ORIGINS:?CORS_ORIGINS is required}"
       BACKUP_DIR: "/backups"
       BACKUP_KEEP: "${BACKUP_KEEP:-5}"
       BOOTSTRAP_ADMIN_USERNAME: "${BOOTSTRAP_ADMIN_USERNAME:-admin}"
       BOOTSTRAP_ADMIN_PASSWORD: "${BOOTSTRAP_ADMIN_PASSWORD}"
-      ALLOW_REMOTE_LLM: "false"
     secrets:
       - jwt_secret_key
       - credential_encryption_key
@@ -68,12 +69,18 @@ services:
     # Not exposed to host — only reachable via Caddy
     expose:
       - "8765"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8765/health/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
 
   # --- Frontend (nginx) ---
   frontend:
     build:
-      context: .
+      context: ..
       dockerfile: docker/frontend.Dockerfile
     image: ai-anonymizer-frontend:latest
     container_name: ai-anonymizer-frontend

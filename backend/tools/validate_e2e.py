@@ -26,7 +26,6 @@ from typing import Any
 
 import requests
 
-
 CONN: dict[str, Any] = {
     "host": "127.0.0.1",
     "port": 1433,

@@ -1,7 +1,14 @@
-﻿..env
+﻿# --- Secrets / local environment -------------------------------------------
+# Never commit real credentials. The ``.env`` typo (``..env``) previously
+# meant backend/.env was tracked by git.
+.env
 .env.*
 !.env.example
+!*.env.example
+!**/.env.example
+!docker/.env.prod.example
 
+# --- Virtual environments ---------------------------------------------------
 **/.venv/
 **/.verification-venv/
 **/.cpython311-venv/
@@ -9,6 +16,7 @@
 **/node_modules/
 **/dist/
 
+# --- Python / tool caches ---------------------------------------------------
 **/__pycache__/
 **/.pytest_cache/
 **/.ruff_cache/
@@ -16,10 +24,21 @@
 **/backend/backend/
 **/*.egg-info/
 
+# --- Logs / build artefacts -------------------------------------------------
 *.log
 *.tsbuildinfo
 *.pyc
-*.db
+*.backup
 
+# --- Local databases and backups (may contain real data) --------------------
+*.db
+*.sqlite
+*.sqlite3
 backups/
 **/backups/
+
+# --- Editor / OS noise ------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

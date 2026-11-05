@@ -1,16 +1,15 @@
 """LLM client abstractions.
 
-Three implementations:
+Two implementations:
 
 * ``OllamaClient`` — talks to a local Ollama daemon over HTTP using
   ``POST /api/chat`` with ``format: "json"`` to force JSON-mode output.
-* ``OpenAIClient`` — talks to the OpenAI Chat Completions API (or any
-  OpenAI-compatible endpoint) over HTTP using ``response_format``
-  ``json_object`` to force JSON-mode output. Used when
-  ``LLM_PROVIDER=openai``.
 * ``MockLLMClient`` — deterministic, fixture-driven; used in tests and
   when ``LLM_PROVIDER=mock``. Can be configured to fail in controlled
   ways so the retry/validation pipeline is exercised end-to-end.
+
+Cloud providers are intentionally not implemented: the platform only
+sends schema/classification prompts to a local inference endpoint.
 
 The contract is intentionally narrow: ``complete_json(system, user)`` is
 the only public method on every client, returning a parsed JSON dict or
@@ -179,82 +178,6 @@ class OllamaClient(LLMClient):
         except LLMResponseError as exc:
             logger.warning(
                 "Ollama response was not strict JSON; extracted best-effort: {}",
-                exc,
-            )
-            raise
-
-
-class OpenAIClient(LLMClient):
-    """OpenAI Chat Completions client.
-
-    Uses ``POST /v1/chat/completions`` with ``response_format: {"type":
-    "json_object"}`` to coerce JSON-mode output. Works with the official
-    OpenAI API and any OpenAI-compatible gateway that honors
-    ``response_format``.
-
-    The response body's ``choices[0].message.content`` is handed to
-    ``_extract_json_object`` for a final defensive parse.
-    """
-
-    def __init__(
-        self,
-        api_key: str,
-        model: str,
-        base_url: str = "https://api.openai.com/v1",
-        timeout_seconds: int = 120,
-    ) -> None:
-        self._api_key = api_key
-        self._model = model
-        self._base_url = base_url.rstrip("/")
-        self._timeout = timeout_seconds
-
-    def complete_json(self, system: str, user: str) -> dict[str, Any]:
-        url = f"{self._base_url}/chat/completions"
-        payload = {
-            "model": self._model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            "temperature": 0.2,
-            "response_format": {"type": "json_object"},
-        }
-        headers = {
-            "Authorization": f"Bearer {self._api_key}",
-            "Content-Type": "application/json",
-        }
-        try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=self._timeout)
-        except requests.Timeout as exc:
-            raise LLMTimeout(
-                f"OpenAI request timed out after {self._timeout}s (model={self._model})"
-            ) from exc
-        except requests.ConnectionError as exc:
-            raise LLMUnavailable(f"Cannot reach OpenAI at {self._base_url}: {exc}") from exc
-
-        if resp.status_code != 200:
-            raise LLMUnavailable(f"OpenAI returned HTTP {resp.status_code}: {resp.text[:200]!r}")
-
-        try:
-            body = resp.json()
-        except json.JSONDecodeError as exc:
-            raise LLMResponseError(f"OpenAI returned a non-JSON envelope: {exc}") from exc
-
-        try:
-            content = body["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError) as exc:
-            raise LLMResponseError(
-                f"OpenAI response missing choices[0].message.content: {exc}"
-            ) from exc
-
-        if not isinstance(content, str) or not content.strip():
-            raise LLMResponseError("OpenAI returned an empty message.content.")
-
-        try:
-            return _extract_json_object(content)
-        except LLMResponseError as exc:
-            logger.warning(
-                "OpenAI response was not strict JSON; extracted best-effort: {}",
                 exc,
             )
             raise

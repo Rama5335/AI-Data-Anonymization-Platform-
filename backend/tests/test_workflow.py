@@ -112,8 +112,9 @@ def test_stale_detection(monkeypatch, tmp_path):
         orch.transition(job_id, Phase.WAITING_FOR_APPROVAL)
     with session_scope() as session:
         # Force the workflow to look stale.
-        from app.models.entities import Job as _J
         from datetime import datetime, timedelta, timezone
+
+        from app.models.entities import Job as _J
 
         job = session.get(_J, job_id)
         job.workflow_state = {

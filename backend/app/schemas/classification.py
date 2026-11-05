@@ -11,7 +11,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
 SENSITIVITY_CLASSES = (
     "Name",
     "Email",

@@ -273,8 +273,6 @@ export const api = {
       llm_provider: string;
       ollama_model: string;
       ollama_base_url: string;
-      openai_model: string;
-      openai_base_url: string;
       backup_dir: string;
       backup_keep: number;
       safe_update_batch_size: number;

@@ -1,17 +1,29 @@
 # Caddyfile for AI Data Anonymization Platform (production).
 #
-# Replace example.com with your actual domain. Caddy will
-# automatically obtain and renew a TLS certificate from Let's Encrypt.
+# Replace example.com with your actual domain. Caddy obtains and renews
+# the TLS certificate automatically.
 #
-# If you're running on an internal network without a public DNS name,
-# replace the TLS block with a self-signed approach or use the HTTP
-# fallback below.
+# Routing:
+#   /api/*   -> backend:8765 (prefix stripped; backend routes have no /api)
+#   /health* -> backend:8765
+#   /*       -> frontend:5173 (static SPA; nginx also proxies /api/ as a
+#               fallback when Caddy is not used)
+#
+# If you run on an internal network without a public DNS name, keep the
+# :443 block below and use an internal CA / self-signed certificate.
 
 # --- Option 1: Public domain with auto-TLS (recommended) ---
 # example.com {
-#     reverse_proxy backend:8765
+#     handle_path /api/* {
+#         reverse_proxy backend:8765
+#     }
+#     handle /health* {
+#         reverse_proxy backend:8765
+#     }
+#     handle {
+#         reverse_proxy frontend:5173
+#     }
 #
-#     # Rate-limit login attempts
 #     @login path /auth/login
 #     rate_limit @login {
 #         zone login_limit {
@@ -26,9 +38,17 @@
 #     }
 # }
 
-# --- Option 2: Local / internal network (no TLS) ---
+# --- Option 2: Local / internal network ---
 :443 {
-    reverse_proxy backend:8765
+    handle_path /api/* {
+        reverse_proxy backend:8765
+    }
+    handle /health* {
+        reverse_proxy backend:8765
+    }
+    handle {
+        reverse_proxy frontend:5173
+    }
 
     log {
         output stdout
@@ -36,7 +56,7 @@
     }
 }
 
-# HTTP → HTTPS redirect
+# HTTP -> HTTPS redirect
 :80 {
     redir https://{host}{uri} permanent
 }

@@ -19,14 +19,8 @@ import json
 import os
 from functools import lru_cache
 
-from app.classification.llm_client import (
-    LLMClient,
-    MockLLMClient,
-    OllamaClient,
-    OpenAIClient,
-)
+from app.classification.llm_client import LLMClient, MockLLMClient, OllamaClient
 from app.core.config import Settings, get_settings
-
 
 _FAKE_KEYS = {
     "id": "Non Sensitive",
@@ -143,18 +137,6 @@ def build_llm_client(settings: Settings | None = None) -> LLMClient:
             base_url=settings.ollama_base_url,
             model=settings.ollama_model,
             timeout_seconds=settings.ollama_request_timeout_seconds,
-        )
-    if settings.llm_provider == "openai":
-        api_key = settings.openai_api_key.get_secret_value()
-        if not api_key:
-            raise ValueError(
-                "LLM_PROVIDER=openai requires OPENAI_API_KEY to be set in the environment."
-            )
-        return OpenAIClient(
-            api_key=api_key,
-            model=settings.openai_model,
-            base_url=settings.openai_base_url,
-            timeout_seconds=settings.openai_request_timeout_seconds,
         )
     if settings.llm_provider == "mock":
         return get_mock_client()

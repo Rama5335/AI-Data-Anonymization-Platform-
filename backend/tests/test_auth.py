@@ -7,9 +7,8 @@ from app.database.session import session_scope
 from app.main import app
 from app.models import Base
 from app.models.entities import User
-from app.security.tokens import create_access_token, verify_access_token
 from app.security.passwords import hash_password, verify_password
-
+from app.security.tokens import create_access_token, verify_access_token
 
 client = TestClient(app)
 
@@ -112,8 +111,9 @@ def test_users_me_returns_authenticated_user(monkeypatch, tmp_path):
 
 def test_users_me_rejects_expired_token(monkeypatch, tmp_path):
     _seed(monkeypatch, tmp_path)
-    import jwt as _jwt
     from datetime import datetime, timedelta, timezone
+
+    import jwt as _jwt
 
     settings = get_settings()
     payload = {

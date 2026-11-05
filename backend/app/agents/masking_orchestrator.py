@@ -25,8 +25,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.agents.masking import (
-    MaskingContext,
     SUPPORTED_STRATEGIES,
+    MaskingContext,
     generate_salt,
     generate_token_key,
     mask_value,

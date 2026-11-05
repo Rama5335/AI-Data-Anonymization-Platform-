@@ -5,8 +5,8 @@ import os
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from app.models.base import Base
 import app.models.entities  # noqa: F401
+from app.models.base import Base
 
 config = context.config
 target_metadata = Base.metadata

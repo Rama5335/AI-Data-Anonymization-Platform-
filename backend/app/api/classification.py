@@ -25,10 +25,10 @@ from app.models.entities import (
     User,
 )
 from app.schemas.classification import (
-    ClassifyColumnRequest,
-    ClassifyJobRequest,
     ClassificationResultOut,
     ClassificationRunResponse,
+    ClassifyColumnRequest,
+    ClassifyJobRequest,
     JobClassificationResponse,
 )
 from app.security.deps import get_current_user
@@ -206,8 +206,9 @@ def get_job_classifications(
             ).scalars()
         )
         # Count discovered columns that are not yet classified.
-        from app.models.entities import DiscoveredColumn, DiscoveredTable
         from sqlalchemy import func
+
+        from app.models.entities import DiscoveredColumn, DiscoveredTable
 
         total_cols = session.execute(
             select(func.count(DiscoveredColumn.id))

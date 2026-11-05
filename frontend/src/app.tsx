@@ -58,6 +58,11 @@ const TAB_TITLES: Record<Tab, string> = {
   servers: "Servers",
   users: "Users (admin)",
 };
+
+// These views call admin-only endpoints (backup create/list, audit read,
+// user management), so they are hidden for ordinary users.
+const ADMIN_ONLY_TABS: ReadonlySet<Tab> = new Set<Tab>(["backup", "audit", "users"]);
+
 function Inner() {
   const { state, logout } = useAuth();
 
@@ -339,7 +344,7 @@ function AppShell(props: { user: { id: string; username: string; role: string };
   {sidebarOpen && (
     <div className="mt-3 grid grid-cols-1 gap-2 rounded-2xl border border-pink-100 bg-white p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-1">
       {(Object.keys(TAB_TITLES) as Tab[])
-        .filter((t) => (t === "users" ? isAdmin : true))
+        .filter((t) => (ADMIN_ONLY_TABS.has(t) ? isAdmin : true))
         .map((t) => (
           <button
             key={t}
@@ -563,7 +568,7 @@ function AppShell(props: { user: { id: string; username: string; role: string };
     />
   ) : tab === "approval" ? (
     <ApprovalCenter jobId={jobId} conn={conn} />
-  ) : tab === "backup" ? (
+  ) : tab === "backup" && isAdmin ? (
     <BackupCenter
       conn={conn}
       selectedDatabase={selectedDatabase}
@@ -574,8 +579,9 @@ function AppShell(props: { user: { id: string; username: string; role: string };
       jobId={jobId}
       conn={conn}
       selectedDatabase={selectedDatabase}
+      isAdmin={isAdmin}
     />
-  ) : tab === "audit" ? (
+  ) : tab === "audit" && isAdmin ? (
     <AuditLogView jobId={jobId} />
   ) : tab === "workflow" ? (
     <WorkflowView
@@ -589,6 +595,7 @@ function AppShell(props: { user: { id: string; username: string; role: string };
     <UsersAdminTab />
   ) : tab === "servers" ? (
     <ServersTab
+      isAdmin={isAdmin}
       activeServerId={activeServer?.id}
       onActivate={(s) => {
         setConn({ ...conn, host: s.host, port: s.port });
@@ -614,7 +621,7 @@ function AppShell(props: { user: { id: string; username: string; role: string };
           <span className="text-rule">·</span>
           <span>no DDL by default · parameterized UPDATEs · FK-referential integrity</span>
           <span className="ml-auto">
-            targets: 127.0.0.1:8765 (proxied via vite) · ollama: 11434
+            same-origin /api · local Ollama inference
           </span>
         </div>
       </footer>

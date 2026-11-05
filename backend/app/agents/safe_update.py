@@ -46,7 +46,6 @@ from app.classification.factory import build_llm_client
 from app.models.entities import Job  # noqa: F401  -- reserved for future use
 from app.security.redaction import safe_error_message
 
-
 _UNSAFE_IDENT = re.compile(r"[^A-Za-z0-9_]")
 
 

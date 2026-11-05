@@ -29,7 +29,6 @@ import time
 
 import requests
 
-
 API = "http://127.0.0.1:8765"
 ADMIN_USERNAME = os.environ.get("BOOTSTRAP_ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("BOOTSTRAP_ADMIN_PASSWORD", "CHANGE_ME")

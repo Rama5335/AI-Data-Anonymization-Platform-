@@ -46,7 +46,6 @@ from typing import Any, Protocol
 
 from faker import Faker
 
-
 SUPPORTED_STRATEGIES: frozenset[str] = frozenset(
     {
         "Fake Name",

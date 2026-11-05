@@ -60,7 +60,8 @@
 **Status:** ✅ Complete — `docs/PER_LANGUAGE_LLM.md`.
 
 ### What was documented
-- Supported providers: Ollama (default), Mock (testing), OpenAI-compatible (future)
+- Supported providers: Ollama (default, local/private only) and Mock (testing).
+  Cloud/OpenAI-compatible providers are intentionally unsupported.
 - Model selection guidance (7-8B models are sufficient for PII classification)
 - Licensing table (Llama 3.1 Community License, Apache 2.0 for Qwen/Mistral)
 - Configuration surface: all env vars in `Settings` pydantic model

@@ -199,9 +199,9 @@ def probe_server(
     this probe. Use the ephemeral-discovery /schema/discover endpoint
     for the same behaviour through the schema API.
     """
+    from app.database.mssql import MssqlDiscoveryClient
     from app.database.url import build_mssql_url
     from app.schemas.discovery import ConnectionDetails
-    from app.database.mssql import MssqlDiscoveryClient
 
     session = session_scope()
     try:

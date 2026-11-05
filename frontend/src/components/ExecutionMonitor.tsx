@@ -11,9 +11,10 @@ type Props = {
   jobId: string | null;
   conn: ConnectionDetails;
   selectedDatabase: string | null;
+  isAdmin?: boolean;
 };
 
-export function ExecutionMonitor({ jobId, conn, selectedDatabase }: Props) {
+export function ExecutionMonitor({ jobId, conn, selectedDatabase, isAdmin = false }: Props) {
   const [plans, setPlans] = useState<UpdatePlan[]>([]);
   const [results, setResults] = useState<UpdateResult[] | null>(null);
   const [busy, setBusy] = useState<"plan" | "apply" | null>(null);
@@ -172,6 +173,12 @@ export function ExecutionMonitor({ jobId, conn, selectedDatabase }: Props) {
         <p className="text-[10px] font-mono uppercase tracking-wider text-mute">
           apply (live)
         </p>
+        {!isAdmin ? (
+          <p className="text-[11px] font-mono text-mute">
+            Applying an update requires the admin role. You can still generate a
+            dry-run plan above.
+          </p>
+        ) : null}
         <label className="block text-[11px] font-mono">
           <span className="text-mute">expected_backup_path</span>
           {(backupList?.records ?? []).some((r) => r.verified) ? (
@@ -179,6 +186,7 @@ export function ExecutionMonitor({ jobId, conn, selectedDatabase }: Props) {
               className="input mt-1 text-[11px]"
               value={backupPath}
               onChange={(e) => setBackupPath(e.target.value)}
+              disabled={!isAdmin}
             >
               <option value="">-- select a verified backup --</option>
               {(backupList?.records ?? [])
@@ -195,6 +203,7 @@ export function ExecutionMonitor({ jobId, conn, selectedDatabase }: Props) {
               placeholder="/var/opt/mssql/backups/anonymizer_app_*.bak"
               value={backupPath}
               onChange={(e) => setBackupPath(e.target.value)}
+              disabled={!isAdmin}
             />
           )}
         </label>
@@ -207,12 +216,13 @@ export function ExecutionMonitor({ jobId, conn, selectedDatabase }: Props) {
             placeholder="MASK AND UPDATE"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
+            disabled={!isAdmin}
           />
         </label>
         <button
           type="button"
           className="btn-accent"
-          disabled={confirmText !== "MASK AND UPDATE" || !backupPath || busy !== null}
+          disabled={!isAdmin || confirmText !== "MASK AND UPDATE" || !backupPath || busy !== null}
           onClick={handleApply}
         >
           {busy === "apply" ? "Applying..." : "Apply (irreversible)"}

@@ -23,7 +23,6 @@ from app.models.entities import (
     User,
 )
 
-
 ALLOWED_DECISIONS = frozenset({"approve", "reject", "override"})
 ALLOWED_STRATEGIES = frozenset(
     {

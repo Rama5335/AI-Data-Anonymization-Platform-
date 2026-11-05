@@ -15,9 +15,11 @@ const EMPTY_DRAFT: Draft = { name: "", host: "", port: 1433, auth_type: "sql" };
 export function ServersTab({
   onActivate,
   activeServerId,
+  isAdmin = false,
 }: {
   onActivate?: (s: Server) => void;
   activeServerId?: string | null;
+  isAdmin?: boolean;
 }) {
   const [servers, setServers] = useState<Server[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -111,17 +113,22 @@ export function ServersTab({
       <header className="flex items-center gap-3 hairline-b pb-3">
         <p className="font-display text-lg text-ink">Servers</p>
         <p className="text-xs text-mute">
-          {servers.length} registered · add, edit, delete; use "probe" to test connectivity
+          {servers.length} registered ·{" "}
+          {isAdmin
+            ? "add, edit, delete; use \"probe\" to test connectivity"
+            : "read-only · select a server to prefill the connection form"}
         </p>
         <div className="ml-auto flex items-center gap-2 text-[11px] font-mono">
-          <button
-            type="button"
-            className="btn-accent"
-            onClick={() => setDraft(EMPTY_DRAFT)}
-            disabled={busy}
-          >
-            New server
-          </button>
+          {isAdmin ? (
+            <button
+              type="button"
+              className="btn-accent"
+              onClick={() => setDraft(EMPTY_DRAFT)}
+              disabled={busy}
+            >
+              New server
+            </button>
+          ) : null}
           <button type="button" className="btn-ghost" onClick={() => void refresh()} disabled={busy}>
             Refresh
           </button>
@@ -176,30 +183,34 @@ export function ServersTab({
                     type="button"
                     className="btn-ghost"
                     onClick={() => {
-                      setDraft({
-                        id: s.id,
-                        name: s.name,
-                        host: s.host,
-                        port: s.port,
-                        auth_type: s.auth_type,
-                      });
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-ghost"
-                    onClick={() => {
                       setProbeFor(s.id);
                       setProbeResult(null);
                     }}
                   >
                     Probe
                   </button>
-                  <button type="button" className="btn-ghost" onClick={() => void del(s)}>
-                    Delete
-                  </button>
+                  {isAdmin ? (
+                    <>
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        onClick={() => {
+                          setDraft({
+                            id: s.id,
+                            name: s.name,
+                            host: s.host,
+                            port: s.port,
+                            auth_type: s.auth_type,
+                          });
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button type="button" className="btn-ghost" onClick={() => void del(s)}>
+                        Delete
+                      </button>
+                    </>
+                  ) : null}
                 </td>
               </tr>
             ))}
@@ -207,7 +218,7 @@ export function ServersTab({
         </table>
       </div>
 
-      {draft ? (
+      {draft && isAdmin ? (
         <div className="hairline p-4 space-y-3">
           <p className="text-[10px] font-mono uppercase tracking-wider text-mute">
             {draft.id ? "Edit server" : "New server"}

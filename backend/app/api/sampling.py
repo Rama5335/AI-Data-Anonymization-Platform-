@@ -13,9 +13,9 @@ from app.database.sampling import MssqlSampler
 from app.database.session import session_scope
 from app.database.url import build_mssql_url
 from app.models.entities import DiscoveredTable, User
-from app.security.redaction import redact_text
 from app.schemas.sampling import SampleResultResponse, SampleTableRequest
 from app.security.deps import get_current_user
+from app.security.redaction import redact_text
 
 router = APIRouter(prefix="/sampling", tags=["sampling"])
 

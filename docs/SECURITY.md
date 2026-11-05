@@ -42,7 +42,7 @@ accepts a role value of `"admin"`; a plain `user` is rejected with
 
 | Endpoint | Minimum role |
 | --- | --- |
-| `POST /auth/login`, `GET /health` | none (public) |
+| `POST /auth/login`, `GET /health`, `GET /health/ready` | none (public) |
 | `POST /users` | admin |
 | `GET /users/me` | authenticated |
 | `POST /discovery/*`, `POST /schema/*` | authenticated |
@@ -61,6 +61,23 @@ The **approval model is single-approver** (any active user may approve;
 `approved_by_user_id` is recorded). This is a documented existing
 decision (`docs/PHASES.md`), kept as-is; the hardening work did not
 change it, so approval endpoints require authentication only.
+
+### Frontend role gating
+
+The backend is the source of truth, but the UI also hides views that
+would only return 403 for ordinary users: the Backup Center, Audit Log,
+and Users tabs are admin-only, server create/edit/delete controls are
+admin-only, and the live update confirmation controls are disabled for
+non-admins. Server listing and probing remain available to authenticated
+users.
+
+### CORS
+
+`CORS_ORIGINS` is a comma-separated allow-list of browser origins. The
+default only contains the local Vite development ports. Production
+deployments must set it to the public HTTPS origin (for example
+`https://anonymizer.example.com`); a wildcard is never used together
+with credentials.
 
 ### Job attribution
 
@@ -161,12 +178,23 @@ left stuck in `SINGLE_USER`.
 
 ## 7. No cloud AI / no generated SQL
 
-* The default and supported AI path is local (Ollama). No target data
-  leaves the network.
+* The only supported AI path is local (Ollama) or the deterministic
+  `mock` client. `Settings.llm_provider` accepts only `ollama` and
+  `mock`, and `OLLAMA_BASE_URL` is validated as local/private. No target
+  data leaves the network.
 * The LLM never produces SQL: classification prompts forbid it, and the
   update SQL is built and parameterized by the application itself.
 
-## 8. Known limitations
+## 8. Health probes
+
+* `GET /health` is a liveness probe: it only confirms that the HTTP
+  process is serving requests and touches no dependency.
+* `GET /health/ready` is a readiness probe: it runs `SELECT 1` against
+  the metadata database and returns HTTP 503 with a generic body when the
+  database is unreachable. It never returns driver text or connection
+  strings.
+
+## 9. Known limitations
 
 * **Single-approver** model (no separation of duties); documented
   existing decision, unchanged here.
@@ -187,8 +215,15 @@ left stuck in `SINGLE_USER`.
 * `docker/docker-compose.yml` contains hardcoded **development**
   credentials. They are acceptable for the local disposable stack but
   must be replaced for any shared deployment (see `docker/.env.prod.example`).
+* **Dependency audit:** `npm ci` currently reports 15 advisories
+  (10 moderate, 5 high) in the frontend dependency tree. They were not
+  auto-fixed because `npm audit fix --force` can introduce breaking
+  major-version changes; review them before a public deployment.
+* **No reverse-proxy auth:** the production compose terminates TLS at
+  Caddy and relies on the application's JWT auth. Add an identity-aware
+  proxy or network ACL if the deployment requires SSO/MFA.
 
-## 9. Running the security tests
+## 10. Running the security tests
 
 ```bash
 cd backend

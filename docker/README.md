@@ -10,8 +10,9 @@ AI Data Anonymization Platform.
   so the platform can connect to a real MSSQL out of the box.
 * **frontend** — Vite build served by nginx (`docker/frontend.Dockerfile`).
   Listens on `127.0.0.1:5173` and proxies `/api/*` to the backend.
-* **ollama** — `ollama/ollama:0.3.12`. Pulls `qwen2.5:7b-instruct`
-  on first start. Override with `OLLAMA_MODEL` in compose.
+* **ollama** — `ollama/ollama:0.3.12` (production compose). Pull
+  `qwen2.5:7b-instruct` explicitly after first start; override with
+  `OLLAMA_MODEL` in compose.
 * **mssql** *(optional)* — disposable `mssql/server:2022-latest` for
   the live validators. Bind-mounts `./backups` to
   `/var/opt/mssql/backups` so the backup agent has a path the
@@ -77,8 +78,13 @@ docker stack deploy -c docker/docker-compose.prod.yml anonymizer
 docker compose -f docker/docker-compose.prod.yml --env-file docker/.env.prod up -d
 
 # 5. Pull the LLM model (first time)
-docker exec -it ai-anonymizer-ollama ollama pull llama3.1:8b
+docker exec -it ai-anonymizer-ollama ollama pull qwen2.5:7b-instruct
 ```
+
+The production compose reads `CORS_ORIGINS` from `.env.prod` and requires
+it to be set to the public HTTPS origin. Backend and frontend are only
+reachable through Caddy; the backend healthcheck uses
+`/health/ready` (metadata DB readiness).
 
 ### Secrets management
 

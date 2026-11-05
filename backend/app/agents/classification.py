@@ -29,6 +29,8 @@ from app.classification.llm_client import LLMClient
 from app.classification.parser import (
     ClassificationFailure,
     ClassificationSuccess,
+)
+from app.classification.parser import (
     classify_column as parse_classify_column,
 )
 from app.models.entities import (

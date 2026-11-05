@@ -15,6 +15,67 @@ Get-Process -Name python,node | Where-Object { $_.Path -like "*cpython311-venv*"
 docker rm -f ai-anonymizer-mssql-validation
 ```
 
+## Health and readiness
+
+```bash
+curl http://127.0.0.1:8765/health          # liveness: process is serving HTTP
+curl http://127.0.0.1:8765/health/ready    # readiness: metadata DB answers SELECT 1
+```
+
+`/health` never touches a dependency. `/health/ready` returns HTTP 503
+with a generic JSON body when the metadata database is unreachable; use
+it for Docker/orchestrator healthchecks and load-balancer membership.
+
+## New-machine setup
+
+1. Install Python 3.11, Node.js LTS, and Ollama.
+2. Clone/copy the repository (never copy a real `.env` or `app.db`).
+3. Create the backend virtualenv and install dependencies:
+   ```bash
+   cd backend
+   python -m venv .cpython311-venv
+   # Windows: .\.cpython311-venv\Scripts\activate
+   pip install -e ".[dev]"
+   ```
+4. Copy `.env.example` to `backend/.env` and fill in **new** values for
+   `JWT_SECRET_KEY`, `CREDENTIAL_ENCRYPTION_KEY`, and `DATABASE_URL`.
+5. Run `alembic upgrade head` to create/update the metadata schema.
+6. Pull the model: `ollama pull qwen2.5:7b-instruct`.
+7. Start the API (`uvicorn app.main:app --host 127.0.0.1 --port 8765`)
+   and the frontend (`cd frontend && npm ci && npm run dev`).
+8. Create the first admin with `BOOTSTRAP_ADMIN_USERNAME` /
+   `BOOTSTRAP_ADMIN_PASSWORD`, then remove those variables and restart.
+
+`.env`, `app.db`, `backups/`, and `dist/` are git-ignored. Verify with
+`git check-ignore -v backend/.env` before committing.
+
+## Production deployment checklist (prepare, do not deploy from this repo)
+
+- [ ] Set `APP_ENV=production`.
+- [ ] Generate fresh `JWT_SECRET_KEY` and `CREDENTIAL_ENCRYPTION_KEY`;
+      store them as Docker secrets (see `docker/entrypoint.sh`).
+- [ ] Point `DATABASE_URL` at the metadata MSSQL instance; do **not**
+      reuse a developer SQLite file.
+- [ ] Set `CORS_ORIGINS` to the public HTTPS origin, for example
+      `https://anonymizer.example.com` (never `*`).
+- [ ] Keep `OLLAMA_BASE_URL` local/private
+      (`http://ollama:11434` inside compose or
+      `http://host.docker.internal:11434` for host Ollama). Public URLs
+      are rejected at startup.
+- [ ] Pull `qwen2.5:7b-instruct` (or set `OLLAMA_MODEL` to a model you
+      have pulled) before the first classification request.
+- [ ] Mount a backup volume visible to both MSSQL and the API container;
+      `BACKUP_DIR` must contain the `.bak` files the gate verifies.
+- [ ] Set `BACKUP_KEEP`, `SAFE_UPDATE_BATCH_SIZE`, and
+      `WORKFLOW_APPROVAL_TIMEOUT_HOURS` explicitly.
+- [ ] Terminate TLS at Caddy (or another reverse proxy) and expose only
+      the proxy; backend/frontend stay on the internal network.
+- [ ] Configure the healthcheck to use `/health/ready`.
+- [ ] Remove bootstrap admin variables after the first successful login.
+- [ ] Review the known limitations in `docs/SECURITY.md` (single
+      approver, no login rate limiting, `RESTORE VERIFYONLY`, npm audit
+      advisories).
+
 ## Switch from mock LLM to real Ollama
 
 ```bash
@@ -23,6 +84,10 @@ $env:OLLAMA_BASE_URL = "http://127.0.0.1:11434"
 $env:OLLAMA_MODEL = "qwen2.5:7b-instruct"
 # Restart the API.
 ```
+
+Only local/private endpoints are accepted. `LLM_PROVIDER=openai` (or any
+cloud provider) is rejected by configuration validation; the platform
+never sends schema/sample data to a public inference endpoint.
 
 To verify: hit `GET /health` and then `POST /classification/columns/{id}`
 on a known column. A real model call is much slower than the mock
@@ -47,6 +112,17 @@ Each script:
 ```bash
 cd backend
 pytest -q
+ruff check .
+python -m compileall -q app tests tools
+```
+
+Frontend gate:
+
+```bash
+cd frontend
+npm ci
+npm run lint
+npm run build
 ```
 
 ## Run a specific live test against an existing container
@@ -131,8 +207,13 @@ migration, and re-seeds the fixtures.
 
 ## CI
 
-* **Unit (every push / PR):** `.github/workflows/tests.yml` —
-  pytest + ruff + black + frontend `tsc -b && vite build`.
-* **Live integration (weekly + manual):**
-  `.github/workflows/integration.yml` — boots Docker MSSQL, pulls
-  qwen2.5:7b-instruct, runs the live validators.
+CI workflow definitions live under `.github/workflows/` when present in the
+checkout:
+
+* **Unit (every push / PR):** `tests.yml` — pytest + ruff + frontend
+  `tsc -b && vite build`.
+* **Live integration (weekly + manual):** `integration.yml` — boots Docker
+  MSSQL, pulls qwen2.5:7b-instruct, runs the live validators.
+
+If the workflows are absent from a snapshot, run the same commands locally
+from `backend/` and `frontend/` (see "Run all unit tests" above).

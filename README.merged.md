@@ -57,8 +57,8 @@ Uygulama katmanları:
 
 - **Backend** — FastAPI + SQLAlchemy + Alembic (Python 3.11).
 - **Frontend** — Vite + React + TypeScript + Tailwind.
-- **LLM** — Yerel Ollama (varsayılan `qwen2.5:7b-instruct`), ayrıca `openai` ve deterministik CI
-  için `mock` sağlayıcıları.
+- **LLM** — Yalnızca yerel Ollama (varsayılan `qwen2.5:7b-instruct`) veya deterministik CI
+  için `mock` sağlayıcısı. Bulut YZ sağlayıcıları desteklenmez.
 - **Orkestrasyon** — Faz 15'te iş akışı durum makinesi LangGraph tabanlı hâle getirildi.
 
 ## Teknoloji Yığını
@@ -68,7 +68,7 @@ Uygulama katmanları:
 | Backend | Python 3.11, FastAPI, SQLAlchemy 2.x, Alembic, Pydantic |
 | Kimlik doğrulama | Argon2 (`pwdlib`), HS256 JWT |
 | Veritabanı erişimi | `pyodbc` (ODBC Driver 18 for SQL Server) |
-| LLM | Ollama (yerel), OpenAI uyumlu uç nokta, mock |
+| LLM | Ollama (yerel/özel ağ), mock (test) |
 | Frontend | Vite, React, TypeScript, Tailwind CSS |
 | Altyapı | Docker, docker compose, GitHub Actions (CI) |
 | Test | pytest, ruff, black, Puppeteer (arayüz doğrulama) |
@@ -134,7 +134,9 @@ kaydı, iş akışı, sunucular ve kullanıcılar sekmelerini içerir.
   backend tarafından zorlanır.
 - **Roller** — `user` ve `admin` (`require_role`). Yedekleme, uygulama/geri alma, denetim okuma,
   kullanıcı oluşturma ve sunucu oluşturma/güncelleme/silme için **admin** gerekir.
-  `/health` ve `/auth/login` tek herkese açık rotalardır.
+  `/health`, `/health/ready` ve `/auth/login` herkese açık rotalardır.
+  `/health/ready`, meta veritabanına `SELECT 1` gönderir ve veritabanı
+  erişilemezse sır sızdırmayan genel bir gövdeyle **503** döner.
 - **Açık kayıt yoktur** — herkese açık bir kayıt uç noktası bulunmaz; `POST /users` yalnızca
   admin içindir. İlk çalıştırmada `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_PASSWORD`
   ortam değişkenlerinden bir yönetici oluşturulur; **ilk başarılı girişten sonra bu değişkenler
@@ -210,6 +212,33 @@ docker exec -it ai-anonymizer-ollama ollama pull qwen2.5:7b-instruct
 > Portlar moda göre değişir: yerel **Vite** geliştirme sunucusu `5174`, docker **nginx**
 > arayüzü `5173`; backend her zaman `8765`.
 
+### 4. Dağıtım hazırlığı (dağıtım yapmadan)
+
+Üretim için `docker/docker-compose.prod.yml` ve `docker/.env.prod.example` kullanılır.
+Kontrol listesi:
+
+1. `APP_ENV=production`, yeni `JWT_SECRET_KEY` ve `CREDENTIAL_ENCRYPTION_KEY` üretin;
+   bunları Docker secret olarak saklayın (compose `environment:` bloğuna yazmayın).
+2. `DATABASE_URL` değerini meta veritabanı MSSQL örneğine yönlendirin.
+3. `CORS_ORIGINS` değerini gerçek HTTPS kaynağına ayarlayın (ör. `https://anonymizer.example.com`).
+4. `OLLAMA_BASE_URL` local/private kalmalıdır (`http://ollama:11434` veya
+   `http://host.docker.internal:11434`); genel URL'ler reddedilir.
+5. `qwen2.5:7b-instruct` modelini çekin (veya `OLLAMA_MODEL` ile çekilmiş başka bir model seçin).
+6. MSSQL ve API'nin görebildiği ortak bir yedek volume'u bağlayın; `BACKUP_DIR` doğrulanan
+   `.bak` dosyalarını içermelidir.
+7. TLS'i Caddy/reverse proxy'de sonlandırın; backend ve frontend dışarı açılmasın.
+8. Docker healthcheck'i `/health/ready` kullanacak şekilde ayarlayın.
+9. İlk başarılı girişten sonra `BOOTSTRAP_ADMIN_*` değişkenlerini kaldırın.
+10. `docs/SECURITY.md` içindeki bilinen sınırlamaları gözden geçirin (tek onaylayıcı,
+    giriş hız sınırı yok, `RESTORE VERIFYONLY`, npm audit uyarıları).
+
+Sağlık uçları:
+
+```bash
+curl http://127.0.0.1:8765/health          # liveness
+curl http://127.0.0.1:8765/health/ready    # metadata DB readiness (503 if down)
+```
+
 ## Test ve Doğrulama
 
 Backend (birim + sınır + güvenlik), `backend/` içinden:
@@ -217,14 +246,20 @@ Backend (birim + sınır + güvenlik), `backend/` içinden:
 ```bash
 python -m pytest -q
 python -m ruff check .
-python -m black --check .
+python -m compileall -q app tests tools
 ```
 
-Frontend (tip kontrolü + üretim derlemesi), `frontend/` içinden:
+Frontend (tip kontrolü + lint + üretim derlemesi), `frontend/` içinden:
 
 ```bash
+npm ci
+npm run lint
 npm run build
 ```
+
+Hafta 5 doğrulama raporu (test sonuçları, güvenlik kontrolleri, dağıtım
+hazırlığı ve test edilmeyen kalemler):
+[`docs/WEEK5_VERIFICATION_REPORT.md`](docs/WEEK5_VERIFICATION_REPORT.md).
 
 Uçtan uca doğrulama:
 
@@ -252,7 +287,11 @@ pwsh scripts/validate_phase9.ps1
 Tam model için `docs/SECURITY.md`. Özetle:
 
 - **AuthN/AuthZ** — Argon2 parola karması, HS256 JWT, iki rol (`user`, `admin`).
-- **Bulut YZ yok** — Ollama yereldir; veri ağ dışına çıkmaz.
+- **Bulut YZ yok** — Yalnızca yerel Ollama veya `mock` kullanılabilir; `OLLAMA_BASE_URL`
+  localhost/loopback/özel IP/tek-etiketli Docker servis adı olmalıdır, aksi hâlde uygulama
+  başlamaz. Veri ağ dışına çıkmaz.
+- **CORS** — `CORS_ORIGINS` virgülle ayrılmış izinli kaynak listesidir; varsayılan yalnızca
+  yerel Vite portlarıdır. Üretimde gerçek HTTPS kaynağı ayarlanmalıdır.
 - **LLM üretimi SQL yok** — prompt şablonu bunu iki kez yasaklar; güvenli güncelleme yolu
   parametreli SQL'i kendisi kurar ve güvensiz tanımlayıcıları reddeder.
 - **Diskte kimlik bilgisi yok** — saklanan bağlantı dizeleri `CREDENTIAL_ENCRYPTION_KEY` ile

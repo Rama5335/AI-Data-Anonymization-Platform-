@@ -11,7 +11,6 @@ from app.models import Base
 from app.models.entities import User
 from app.security.tokens import create_access_token
 
-
 client = TestClient(app)
 
 
@@ -154,6 +153,36 @@ def test_list_objects_translates_client_validation_error(monkeypatch, tmp_path) 
     assert response.status_code == 400
 
 
+def test_list_databases_translates_driver_failure_to_redacted_503(
+    monkeypatch, tmp_path
+) -> None:
+    user_id = _seed_user(monkeypatch, tmp_path)
+    fake_client = _FakeClient(
+        raise_on_databases=RuntimeError("login failed PWD=SuperSecret123")
+    )
+    with patch("app.api.discovery.MssqlDiscoveryClient", return_value=fake_client):
+        response = client.post(
+            "/discovery/databases", headers=_auth_token(user_id), json=_details()
+        )
+    assert response.status_code == 503
+    assert "SuperSecret123" not in response.text
+    assert fake_client.disposed is True
+
+
+def test_list_schemas_translates_driver_failure_to_redacted_503(monkeypatch, tmp_path) -> None:
+    user_id = _seed_user(monkeypatch, tmp_path)
+    fake_client = _FakeClient(
+        raise_on_schemas=RuntimeError("login failed password=SuperSecret123")
+    )
+    with patch("app.api.discovery.MssqlDiscoveryClient", return_value=fake_client):
+        response = client.post(
+            "/discovery/schemas", headers=_auth_token(user_id), json=_details()
+        )
+    assert response.status_code == 503
+    assert "SuperSecret123" not in response.text
+    assert fake_client.disposed is True
+
+
 def test_sql_auth_without_password_is_rejected(monkeypatch, tmp_path) -> None:
     user_id = _seed_user(monkeypatch, tmp_path)
     payload = _details()
@@ -178,12 +207,16 @@ class _FakeClient:
         objects: list[_FakeObject] | None = None,
         raise_on_test: Exception | None = None,
         raise_on_objects: Exception | None = None,
+        raise_on_databases: Exception | None = None,
+        raise_on_schemas: Exception | None = None,
     ) -> None:
         self._databases = databases or []
         self._schemas = schemas or []
         self._objects = objects or []
         self._raise_on_test = raise_on_test
         self._raise_on_objects = raise_on_objects
+        self._raise_on_databases = raise_on_databases
+        self._raise_on_schemas = raise_on_schemas
         self.disposed = False
 
     def test_connection(self) -> None:
@@ -191,9 +224,13 @@ class _FakeClient:
             raise self._raise_on_test
 
     def list_databases(self) -> list[str]:
+        if self._raise_on_databases is not None:
+            raise self._raise_on_databases
         return self._databases
 
     def list_schemas(self) -> list[str]:
+        if self._raise_on_schemas is not None:
+            raise self._raise_on_schemas
         return self._schemas
 
     def list_objects(self, object_type: str) -> list[_FakeObject]:

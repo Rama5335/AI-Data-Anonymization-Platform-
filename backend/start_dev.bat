@@ -19,7 +19,7 @@ set "BASE=%BASE:\=/%"
 set DATABASE_URL=sqlite:///%BASE%app.db
 set LLM_PROVIDER=ollama
 set OLLAMA_BASE_URL=http://127.0.0.1:11434
-set OLLAMA_MODEL=llama3.1:8b
+set OLLAMA_MODEL=qwen2.5:7b-instruct
 set BACKUP_DIR=%BASE%../backups
 set BACKUP_KEEP=5
 

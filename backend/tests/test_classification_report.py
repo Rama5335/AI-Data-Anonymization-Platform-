@@ -2,6 +2,7 @@
 
 from app.agents.report import build_job_report, render_markdown, report_to_dict
 from app.database.session import session_scope
+from app.models import Base
 from app.models.entities import (
     ClassificationResult,
     Connection,
@@ -11,7 +12,6 @@ from app.models.entities import (
     Server,
     User,
 )
-from app.models import Base
 
 
 def _setup(monkeypatch, tmp_path):

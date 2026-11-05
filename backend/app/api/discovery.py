@@ -12,10 +12,8 @@ Every route in this module is bounded by the same invariants:
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.database.mssql import MssqlDiscoveryClient
-from app.models.entities import User
-from app.security.deps import get_current_user
-from app.security.redaction import redact_text
 from app.database.url import build_mssql_url
+from app.models.entities import User
 from app.schemas.discovery import (
     ConnectionDetails,
     ConnectionTestResult,
@@ -23,6 +21,8 @@ from app.schemas.discovery import (
     ObjectListResponse,
     SchemaListResponse,
 )
+from app.security.deps import get_current_user
+from app.security.redaction import redact_text
 
 router = APIRouter(prefix="/discovery", tags=["discovery"])
 
@@ -65,6 +65,11 @@ def list_databases(
     client = _open_client(details)
     try:
         return DatabaseListResponse(databases=client.list_databases())
+    except Exception as exc:  # noqa: BLE001 - surface any driver failure as 503
+        raise HTTPException(
+            status_code=503,
+            detail=f"Could not list databases: {redact_text(str(exc))}",
+        ) from exc
     finally:
         client.dispose()
 
@@ -77,6 +82,11 @@ def list_schemas(
     client = _open_client(details)
     try:
         return SchemaListResponse(schemas=client.list_schemas())
+    except Exception as exc:  # noqa: BLE001 - surface any driver failure as 503
+        raise HTTPException(
+            status_code=503,
+            detail=f"Could not list schemas: {redact_text(str(exc))}",
+        ) from exc
     finally:
         client.dispose()
 
@@ -98,6 +108,11 @@ def list_objects(
         objects = client.list_objects(object_type)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - surface any driver failure as 503
+        raise HTTPException(
+            status_code=503,
+            detail=f"Could not list objects: {redact_text(str(exc))}",
+        ) from exc
     finally:
         client.dispose()
     return ObjectListResponse(

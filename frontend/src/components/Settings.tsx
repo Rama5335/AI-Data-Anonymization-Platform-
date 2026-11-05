@@ -5,8 +5,6 @@ type SettingsData = {
   llm_provider: string;
   ollama_model: string;
   ollama_base_url: string;
-  openai_model: string;
-  openai_base_url: string;
   backup_dir: string;
   backup_keep: number;
   safe_update_batch_size: number;
@@ -28,8 +26,6 @@ export function SettingsView() {
     ["LLM provider", settings.llm_provider],
     ["Ollama model", settings.ollama_model],
     ["Ollama base URL", settings.ollama_base_url],
-    ["OpenAI model", settings.openai_model],
-    ["OpenAI base URL", settings.openai_base_url],
     ["Backup dir", settings.backup_dir],
     ["Backup retention (keep)", String(settings.backup_keep)],
     ["Safe update batch size", String(settings.safe_update_batch_size)],
